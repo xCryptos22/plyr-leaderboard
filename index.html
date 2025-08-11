@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLYR Speedrun Leaderboard</title>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><div class="logo-icon"></div><div><h1>PLYR Leaderboard</h1><div class="sub">Speedrun Zeiten & Coin Besitz</div></div></div>
+    </header>
+    <table class="tbl" id="board">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Spieler</th>
+          <th>Zeit</th>
+          <th>Coin</th>
+          <th>Runde</th>
+          <th>Token</th>
+          <th>Coins im Besitz</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <script>
+    const API_BASE = 'https://explorer.plyr.network';
+    const TOKEN = '0x5c8b153c2451010aA074b4387Ec3573cFb547531';
+    const state = { items: [], cursor: null };
+
+    async function fetchNFTs(){
+      const url = `${API_BASE}/api/v2/tokens/${TOKEN}/instances`;
+      const resp = await fetch(url);
+      const data = await resp.json();
+      state.items = data.items || [];
+      render();
+    }
+
+    async function fetchCoinBalance(owner, coinAddress){
+      try {
+        const url = `${API_BASE}/api/v2/addresses/${owner}/token-balances`; 
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const bal = (data.items || []).find(it => it.token?.address?.toLowerCase() === coinAddress.toLowerCase());
+        return bal ? Number(bal.value) / (10 ** (bal.token.decimals || 0)) : 0;
+      } catch(e){
+        return 0;
+      }
+    }
+
+    async function render(){
+      const tbody = document.querySelector('#board tbody');
+      tbody.innerHTML = '';
+      for (let i=0; i<state.items.length; i++){
+        const inst = state.items[i];
+        const ownerAddr = inst.owner?.hash;
+        const ownerName = (inst.owner?.ens_domain_name || inst.owner?.name || ownerAddr || '').replace(/\.plyr$/,'');
+        const attrs = inst.metadata?.attributes || [];
+        const cointype = attrs.find(a => a.trait_type?.toLowerCase() === 'cointype')?.value || '';
+        const mapid = attrs.find(a => a.trait_type?.toLowerCase() === 'mapid')?.value || '';
+        const result = attrs.find(a => a.trait_type?.toLowerCase() === 'result')?.value || '';
+
+        let balance = 0;
+        if (cointype.toLowerCase() === '$gi' || cointype.toLowerCase() === 'golden ink'){
+          balance = await fetchCoinBalance(ownerAddr, '0xEa547F310f6A9dFdB10eEAa03b76EBa8D8eCDc58');
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${i+1}</td><td>${ownerName}</td><td>${result}</td><td>${cointype}</td><td>${mapid}</td><td>${inst.token_id}</td><td>${balance}</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    fetchNFTs();
+  </script>
+</body>
+</html>
