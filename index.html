@@ -104,6 +104,33 @@
       background: linear-gradient(180deg, #1a2536, #121b28);
     }
 
+    /* Stil für die Runden‑Auswahl (mapSelect). Dieser Select wird wie
+       die Buttons gestaltet, damit er sich nahtlos in die Steuerleiste
+       einfügt. */
+    #mapSelect {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      background: linear-gradient(180deg, #22324b, #182437);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+      transition: box-shadow 0.1s ease;
+    }
+
+    #mapSelect:hover {
+      box-shadow: var(--ring);
+    }
+
+    #mapSelect option {
+      color: #000;
+    }
+
     .tbl {
       width: 100%;
       border-collapse: collapse;
@@ -308,6 +335,9 @@
       nextParams: null,  // Parameter für nächste Seite (Pagination)
       coins: [],         // Liste aller Coins
       maps: [],          // Liste aller Runden
+      // GI‑Balances, gefüllt aus /tokens/{address}/holders
+      giBalances: {},
+      giBalancesFetched: false,
     };
 
     // Helfer: konvertiert NFT‑Instanz oder v2‑Antwort in ein Objekt mit Owner, Attrs etc.
@@ -433,6 +463,41 @@
       }
     }
 
+    // Ruft die Halter des Golden‑Ink‑Tokens ab und berechnet die Balance pro Adresse.
+    // Blockscout liefert alle Halter in einem Rutsch. Wir cachen das Ergebnis in state.giBalances.
+    async function fetchGiBalances() {
+      if (state.giBalancesFetched) return;
+      try {
+        const resp = await fetch(`${API_BASE}/api/v2/tokens/${GI_TOKEN}/holders`);
+        const data = await resp.json();
+        const items = data.items || data; // falls die API direkt ein Array liefert
+        state.giBalances = {};
+        // Decimals für GI sind 18 laut Token‑Seite; fallback falls nicht angegeben.
+        const decimals = (data.token && data.token.decimals) || 18;
+        for (const it of items) {
+          const addrObj = it.address || {};
+          const hash = (addrObj.hash || addrObj.address || '').toLowerCase();
+          // Wert als BigInt (kann sehr groß sein)
+          let val = 0;
+          try {
+            // value kann als String vorliegen; verwende BigInt zur Berechnung
+            const big = BigInt(it.value || '0');
+            const div = BigInt(10) ** BigInt(decimals);
+            // Wir runden auf Ganzzahl; Bruchteile interessieren uns kaum
+            const scaled = Number(big / div);
+            val = scaled;
+          } catch (_) {
+            val = Number(it.value) / Math.pow(10, decimals);
+          }
+          if (hash) state.giBalances[hash] = val;
+        }
+        state.giBalancesFetched = true;
+      } catch (e) {
+        console.warn('fetchGiBalances failed', e);
+        state.giBalancesFetched = true; // keine erneuten Versuche
+      }
+    }
+
     // Rendert die UI und Tabelle neu
     async function render() {
       // Ableitung der Zeilen (Owner, Coin, Map, Result, TokenId)
@@ -553,19 +618,45 @@
         if (state.activeCoin === c) b.style.boxShadow = 'var(--ring)';
         ctrl.insertBefore(b, ctrl.firstChild);
       }
+
+      // Map (Runde) Select: erlaubt Auswahl der verfügbaren mapid‑Werte.
+      // Wir erstellen ein Dropdown mit allen bekannten Runden und setzen den
+      // aktuellen Wert aus state.activeMapId. Beim Wechsel wird die
+      // ausgewählte Runde in den State geschrieben und das Leaderboard neu gerendert.
+      if (state.maps && state.maps.length) {
+        const mapSelect = document.createElement('select');
+        mapSelect.id = 'mapSelect';
+        // Baue Option für jede Runde (absteigend sortiert).
+        for (const m of state.maps) {
+          const opt = document.createElement('option');
+          opt.value = m;
+          opt.textContent = 'Map ' + m;
+          if (state.activeMapId === m) opt.selected = true;
+          mapSelect.appendChild(opt);
+        }
+        mapSelect.onchange = (e) => {
+          const val = e.target.value;
+          // mapSelect liefert Strings – konvertiere zu Zahl
+          state.activeMapId = val === '' ? null : Number(val);
+          render();
+        };
+        // Füge das Dropdown direkt vor den ersten statischen Button ein (Reload)
+        const reloadBtn = document.getElementById('reloadBtn');
+        ctrl.insertBefore(mapSelect, reloadBtn);
+      }
     }
 
     // Lädt Golden‑Ink‑Balances asynchron und trägt sie ein
     async function updateBalances() {
       const cells = document.querySelectorAll('.balance');
+      // Stelle sicher, dass die GI‑Balances geladen sind
+      await fetchGiBalances();
       for (const cell of cells) {
-        const owner = cell.getAttribute('data-owner');
-        const coin = cell.getAttribute('data-coin');
-        let bal = 0;
-        if (coin === 'GI' || coin === '$GI' || coin === 'GOLDEN INK') {
-          bal = await fetchCoinBalance(owner, GI_TOKEN);
-        }
-        cell.textContent = bal;
+        const owner = (cell.getAttribute('data-owner') || '').toLowerCase();
+        // Verwende die vorab geladenen GI‑Balances; falls nicht vorhanden, 0.
+        const bal = state.giBalances[owner] ?? 0;
+        // Zeige Balance ohne Nachkommastellen oder mit max 3 Dezimalen
+        cell.textContent = bal % 1 === 0 ? bal : bal.toFixed(3).replace('.', ',');
       }
     }
 
