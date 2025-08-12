@@ -400,8 +400,14 @@
       }
       state.coins = Array.from(coinSet).sort();
       state.maps = Array.from(mapSet).sort((a, b) => b - a);
+      // Setze die Standard-Runde auf die zweitneueste (neueste - 1), falls vorhanden
+      // Wenn noch keine activeMapId gewählt wurde und es Runden gibt, wählen wir die
+      // zweithöchste ID (Index 1 in der sortierten absteigenden Liste). Existiert nur eine
+      // Runde, fällt die Wahl auf diese erste Runde.
       if (state.activeMapId == null && state.maps.length > 0) {
-        state.activeMapId = state.maps[0];
+        // state.maps ist absteigend sortiert: [neueste, zweitneueste, ...]
+        const idx = state.maps.length > 1 ? 1 : 0;
+        state.activeMapId = state.maps[idx];
       }
     }
 
