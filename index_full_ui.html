@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PLYR Speedrun Leaderboard</title>
+  <style>
+    /*
+      Dieses Stylesheet sorgt für ein modernes, dunkles Leaderboard‑Layout mit klaren
+      Kontrasten. Farbvariablen lassen sich zentral anpassen und stehen als CSS
+      Variablen im :root zur Verfügung. Tabellenköpfe sind sticky, Buttons
+      reagieren auf Hover mit leichten Schatteneffekten und die ersten drei
+      Plätze erhalten Podest‑Farben.
+    */
+    :root {
+      --bg: #0a0d12;
+      --panel: #0e1520;
+      --muted: #9fb0c8;
+      --text: #f3f7ff;
+      --brand: #5fd3ff;
+      --accent: #b6ff8a;
+      --card: #111a26;
+      --chip: #1b2a3d;
+      --danger: #ff6b6b;
+      --ok: #62d392;
+      --warning: #ffd166;
+      --ring: 0 0 0 2px rgba(95, 211, 255, 0.55), 0 0 0 6px rgba(95, 211, 255, 0.18);
+      --radius: 12px;
+    }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, var(--bg), #091323 55%, var(--bg));
+      color: var(--text);
+      font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-size: 15px;
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    header .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    header .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--brand), var(--accent));
+      border-radius: 6px;
+    }
+
+    header .sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, #22324b, #182437);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+      line-height: 1;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.04) inset;
+      transition: box-shadow 0.1s ease;
+    }
+
+    .btn:hover {
+      box-shadow: var(--ring);
+    }
+
+    .btn.secondary {
+      background: linear-gradient(180deg, #1a2536, #121b28);
+    }
+
+    .tbl {
+      width: 100%;
+      border-collapse: collapse;
+      overflow-x: auto;
+    }
+
+    .tbl thead th {
+      position: sticky;
+      top: 0;
+      background: linear-gradient(180deg, rgba(17, 26, 38, 0.95), rgba(17, 26, 38, 0.85));
+      backdrop-filter: saturate(130%) blur(6px);
+      font-size: 12px;
+      color: var(--muted);
+      text-align: left;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .tbl tbody tr {
+      background: var(--card);
+      transition: transform 0.06s ease, box-shadow 0.06s ease;
+    }
+
+    .tbl tbody tr:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    .tbl tbody td {
+      padding: 12px 10px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
+    }
+
+    .rank {
+      display: inline-grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #1a2739, #101827);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      font-weight: 700;
+    }
+
+    .podium-1 {
+      background: linear-gradient(180deg, #e9d67d, #c8b55c);
+      color: #3a3100;
+    }
+
+    .podium-2 {
+      background: linear-gradient(180deg, #e0e5ea, #c6ccd3);
+      color: #20262b;
+    }
+
+    .podium-3 {
+      background: linear-gradient(180deg, #e0ad7a, #c08755);
+      color: #2b1d12;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 8px;
+      font-size: 12px;
+      background: var(--chip);
+      color: var(--text);
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .search-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 0;
+      flex-grow: 1;
+    }
+
+    .search-wrapper input {
+      flex-grow: 1;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(180deg, #1a2536, #121b28);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .panel {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 300px;
+      background: var(--panel);
+      border-left: 1px solid rgba(255, 255, 255, 0.12);
+      overflow-y: auto;
+      padding: 20px;
+      box-shadow: -2px 0 4px rgba(0, 0, 0, 0.4);
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+
+    .panel.open {
+      transform: translateX(0);
+    }
+
+    .panel h2 {
+      margin-top: 0;
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+
+    .panel table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .panel table th,
+    .panel table td {
+      text-align: left;
+      padding: 6px;
+      font-size: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">
+        <div class="logo-icon"></div>
+        <div>
+          <h1>PLYR Leaderboard</h1>
+          <div class="sub">Speedrun Zeiten &amp; Coin‑Besitz</div>
+        </div>
+      </div>
+      <!-- Steuerlemente -->
+      <div class="controls" id="controls">
+        <!-- Dynamische Buttons für Coins und Runden werden hier eingefügt -->
+        <button class="btn" id="reloadBtn" title="Neu laden">
+          🔄 Neu laden
+        </button>
+        <button class="btn" id="formatToggle" title="Zeitformat umschalten">
+          ⏱ <span id="formatLabel">s.mmm</span>
+        </button>
+        <button class="btn secondary" id="exportCsv" title="CSV exportieren">
+          📄 CSV
+        </button>
+        <button class="btn secondary" id="toggleMode" title="Modus wechseln (Bestzeit/Alle Läufe)">
+          🔀 Modus
+        </button>
+        <div class="search-wrapper">
+          <input type="text" id="userQuery" placeholder="Spieler suchen …" />
+        </div>
+      </div>
+    </header>
+    <table class="tbl" id="board">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Name</th>
+          <th>Zeit</th>
+          <th>Coin</th>
+          <th>Runde</th>
+          <th>Token</th>
+          <th>Coins</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="panel" id="userPanel">
+    <!-- Befüllung dynamisch -->
+  </div>
+  <script>
+    //
+    // Diese App ruft NFT‑Daten von der Blockscout v2 API ab (PLYR Explorer) und
+    // bereitet sie zu einem übersichtlichen Leaderboard auf. Zusätzlich werden
+    // Golden‑Ink‑Bestände pro Spieler ermittelt. Die Ansicht lässt sich nach
+    // Coin‑Type, Runde (mapid), Spielername und Laufmodus (Bestzeit vs. alle
+    // Läufe) filtern. Außerdem können die Zeiten als CSV exportiert und das
+    // Anzeigeformat der Zeit (Sekunden vs. mm:ss.mmm) umgeschaltet werden.
+
+    const API_BASE = 'https://explorer.plyr.network';
+    const TOKEN = '0x5c8b153c2451010aA074b4387Ec3573cFb547531';
+    const GI_TOKEN = '0xEa547F310f6A9dFdB10eEAa03b76EBa8D8eCDc58';
+
+    const state = {
+      items: [],         // alle geladenen Instanzen
+      activeCoin: 'ALL', // aktueller Coin‑Filter
+      activeMapId: null, // aktuelle Runde (null = neueste)
+      timeFormat: 's',   // 's' oder 'clock'
+      modeAllRuns: false,// false = Bestzeit pro Spieler, true = alle Läufe
+      userFilter: '',    // Suchbegriff für Spielername
+      nextParams: null,  // Parameter für nächste Seite (Pagination)
+      coins: [],         // Liste aller Coins
+      maps: [],          // Liste aller Runden
+    };
+
+    // Helfer: konvertiert NFT‑Instanz oder v2‑Antwort in ein Objekt mit Owner, Attrs etc.
+    function getInstanceObject(item) {
+      return item.token_instance || item;
+    }
+
+    // Robust: liest Metadaten (kann als URL oder Objekt vorliegen)
+    function getMetadata(meta) {
+      if (!meta) return null;
+      if (typeof meta === 'object') return meta;
+      try {
+        return JSON.parse(meta);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Extrahiert Attribute (case‑insensitiv) zu result, cointype, mapid
+    function parseAttributes(attrs) {
+      const out = {};
+      for (const attr of attrs) {
+        if (!attr) continue;
+        const key = (attr.trait_type || attr.traitType || '').toLowerCase();
+        const val = attr.value || attr.values || attr.name || null;
+        if (key === 'result') out.result = Number(val);
+        else if (key === 'cointype') out.cointype = String(val);
+        else if (key === 'mapid') out.mapid = Number(val);
+      }
+      return out;
+    }
+
+    // Formatiert Millisekunden zu Sekunden mit 3 Dezimalstellen
+    function fmtMsToS(val) {
+      if (val == null || isNaN(val)) return '—';
+      const ms = Math.max(0, Number(val));
+      return (ms / 1000).toFixed(3).replace('.', ',') + 's';
+    }
+    // Formatiert zu mm:ss.mmm
+    function fmtMsToClock(val) {
+      if (val == null || isNaN(val)) return '—';
+      const ms = Math.max(0, Number(val));
+      const totalSec = Math.floor(ms / 1000);
+      const m = Math.floor(totalSec / 60);
+      const s = totalSec % 60;
+      const pad = (n, w = 2) => String(n).padStart(w, '0');
+      return `${pad(m)}:${pad(s)}.${String(ms % 1000).padStart(3, '0')}`;
+    }
+    function fmtTime(val) {
+      return state.timeFormat === 'clock' ? fmtMsToClock(val) : fmtMsToS(val);
+    }
+
+    // Bestimmt Liste der Coins und Runden aus Items
+    function updateCoinsAndMaps(rows) {
+      const coinSet = new Set();
+      const mapSet = new Set();
+      for (const r of rows) {
+        if (r.coin) coinSet.add(r.coin);
+        if (r.mapid != null) mapSet.add(r.mapid);
+      }
+      state.coins = Array.from(coinSet).sort();
+      state.maps = Array.from(mapSet).sort((a, b) => b - a);
+      if (state.activeMapId == null && state.maps.length > 0) {
+        state.activeMapId = state.maps[0];
+      }
+    }
+
+    // Gruppiert nach Owner (optional Bestzeit vs. alle Läufe)
+    function groupForLeaderboard(rows) {
+      if (state.modeAllRuns) return rows;
+      const bestMap = new Map();
+      for (const row of rows) {
+        const key = row.owner;
+        if (!bestMap.has(key) || row.result < bestMap.get(key).result) {
+          bestMap.set(key, row);
+        }
+      }
+      return Array.from(bestMap.values()).sort((a, b) => a.result - b.result);
+    }
+
+    // Lädt NFTs (inkl. Pagination) und befüllt state.items
+    async function fetchNFTs(reset = false) {
+      if (reset) {
+        state.items = [];
+        state.nextParams = null;
+      }
+      let url = `${API_BASE}/api/v2/tokens/${TOKEN}/instances`;
+      if (state.nextParams) {
+        const params = new URLSearchParams(state.nextParams);
+        url += '?' + params.toString();
+      }
+      try {
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const items = data.items || [];
+        for (const it of items) {
+          state.items.push(it);
+        }
+        state.nextParams = data.next_page_params || null;
+      } catch (e) {
+        console.error('Fetch error', e);
+      }
+      render();
+    }
+
+    // Ermittelt Golden‑Ink‑Bestand für einen Owner
+    async function fetchCoinBalance(ownerAddr, coinAddress) {
+      if (!ownerAddr) return 0;
+      try {
+        const url = `${API_BASE}/api/v2/addresses/${ownerAddr}/token-balances`;
+        const resp = await fetch(url);
+        const data = await resp.json();
+        const bal = (data.items || []).find((it) => {
+          return (
+            it.token &&
+            it.token.address &&
+            it.token.address.toLowerCase() === coinAddress.toLowerCase()
+          );
+        });
+        return bal ? Number(bal.value) / Math.pow(10, bal.token.decimals || 0) : 0;
+      } catch (e) {
+        return 0;
+      }
+    }
+
+    // Rendert die UI und Tabelle neu
+    async function render() {
+      // Ableitung der Zeilen (Owner, Coin, Map, Result, TokenId)
+      const rows = [];
+      for (const it of state.items) {
+        const inst = getInstanceObject(it);
+        const ownerAddr = inst.owner?.hash || it.owner?.hash;
+        const ownerNameRaw =
+          inst.owner?.ens_domain_name || inst.owner?.name || ownerAddr || '';
+        const ownerName = ownerNameRaw.replace(/\.plyr$/i, '') || 'Unbekannt';
+        const metaObj = getMetadata(inst.metadata) || getMetadata(inst);
+        const attrs = parseAttributes(metaObj?.attributes || []);
+        const coin = (attrs.cointype || '').toUpperCase() || 'UNDEF';
+        const mapid = Number.isFinite(attrs.mapid) ? attrs.mapid : null;
+        const result = Number(attrs.result);
+        if (!Number.isFinite(result) || mapid == null) continue;
+        rows.push({
+          owner: ownerName,
+          ownerAddr,
+          coin,
+          mapid,
+          result,
+          token_id: inst.token_id || it.token_id || inst.id || it.id,
+        });
+      }
+      updateCoinsAndMaps(rows);
+
+      // Filter nach Coin
+      let filtered = rows;
+      if (state.activeCoin && state.activeCoin !== 'ALL') {
+        filtered = filtered.filter((r) => r.coin === state.activeCoin);
+      }
+      // Filter nach Map
+      if (state.activeMapId != null) {
+        filtered = filtered.filter((r) => r.mapid === state.activeMapId);
+      }
+      // Filter nach Spielername
+      const uq = state.userFilter.trim().toLowerCase();
+      if (uq) {
+        filtered = filtered.filter((r) => r.owner.toLowerCase().includes(uq));
+      }
+      // Sortierung
+      filtered.sort((a, b) => a.result - b.result);
+      const tableRows = groupForLeaderboard(filtered);
+      const tbody = document.querySelector('#board tbody');
+      tbody.innerHTML = '';
+      const wr = tableRows.length ? tableRows[0].result : null;
+      // Render Rows
+      for (let i = 0; i < tableRows.length; i++) {
+        const r = tableRows[i];
+        const tr = document.createElement('tr');
+        const delta = wr != null && r.result != null ? (r.result - wr) / 1000 : null;
+        const podiumClass =
+          i === 0 ? 'podium-1' : i === 1 ? 'podium-2' : i === 2 ? 'podium-3' : '';
+        const rankHTML = `<div class="rank ${podiumClass}">${i + 1}</div>`;
+        tr.innerHTML = `
+          <td>${rankHTML}</td>
+          <td class="name"><button class="btn" data-user="${r.owner}">${r.owner}</button></td>
+          <td>${fmtTime(r.result)}${
+            delta != null && delta > 0
+              ? ` <span class="muted">(+${delta.toFixed(3).replace('.', ',')}s)</span>`
+              : ''
+          }</td>
+          <td><span class="pill">${r.coin}</span></td>
+          <td><span class="pill">${r.mapid}</span></td>
+          <td>${r.token_id ? '#' + r.token_id : ''}</td>
+          <td class="balance" data-owner="${r.ownerAddr}" data-coin="${r.coin}">⏳</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      // Aktualisiere Coin‑Buttons und Map‑Dropdown
+      renderFilters();
+      // Lade Balances asynchron
+      updateBalances();
+      // Speichere Zustände in localStorage
+      try {
+        localStorage.setItem(
+          'plyrBoardState',
+          JSON.stringify({
+            activeCoin: state.activeCoin,
+            activeMapId: state.activeMapId,
+            modeAllRuns: state.modeAllRuns,
+            userFilter: state.userFilter,
+            timeFormat: state.timeFormat,
+          })
+        );
+      } catch (_) {}
+    }
+
+    // Rendert Coin‑ und Map‑Filter Buttons
+    function renderFilters() {
+      const ctrl = document.getElementById('controls');
+      // Entferne alte Filterbuttons (ab Index 0 bis dynamisch generierte Buttons)
+      // Wir belassen die festen Buttons (reload, format, export, toggle, search) am Ende
+      const staticIds = ['reloadBtn', 'formatToggle', 'exportCsv', 'toggleMode', 'userQuery'];
+      // Entferne alle Buttons vor den statischen Elementen
+      while (ctrl.firstChild && !staticIds.includes(ctrl.firstChild.id)) {
+        ctrl.removeChild(ctrl.firstChild);
+      }
+      // Coin Buttons
+      const allBtn = document.createElement('button');
+      allBtn.className = 'btn';
+      allBtn.textContent = 'ALL';
+      allBtn.onclick = () => {
+        state.activeCoin = 'ALL';
+        render();
+      };
+      if (state.activeCoin === 'ALL') allBtn.style.boxShadow = 'var(--ring)';
+      ctrl.insertBefore(allBtn, ctrl.firstChild);
+      for (const c of state.coins) {
+        const b = document.createElement('button');
+        b.className = 'btn';
+        b.textContent = c;
+        b.onclick = () => {
+          state.activeCoin = c;
+          render();
+        };
+        if (state.activeCoin === c) b.style.boxShadow = 'var(--ring)';
+        ctrl.insertBefore(b, ctrl.firstChild);
+      }
+    }
+
+    // Lädt Golden‑Ink‑Balances asynchron und trägt sie ein
+    async function updateBalances() {
+      const cells = document.querySelectorAll('.balance');
+      for (const cell of cells) {
+        const owner = cell.getAttribute('data-owner');
+        const coin = cell.getAttribute('data-coin');
+        let bal = 0;
+        if (coin === 'GI' || coin === '$GI' || coin === 'GOLDEN INK') {
+          bal = await fetchCoinBalance(owner, GI_TOKEN);
+        }
+        cell.textContent = bal;
+      }
+    }
+
+    // Zeigt Panel mit allen Läufen eines Spielers
+    function showUser(name) {
+      const panel = document.getElementById('userPanel');
+      const rows = [];
+      for (const it of state.items) {
+        const inst = getInstanceObject(it);
+        const ownerNameRaw =
+          inst.owner?.ens_domain_name || inst.owner?.name || inst.owner?.hash || '';
+        const ownerName = ownerNameRaw.replace(/\.plyr$/i, '') || 'Unbekannt';
+        if (ownerName !== name) continue;
+        const metaObj = getMetadata(inst.metadata) || getMetadata(inst);
+        const attrs = parseAttributes(metaObj?.attributes || []);
+        const coin = (attrs.cointype || '').toUpperCase() || 'UNDEF';
+        const mapid = Number.isFinite(attrs.mapid) ? attrs.mapid : null;
+        const result = Number(attrs.result);
+        if (!Number.isFinite(result) || mapid == null) continue;
+        rows.push({ coin, mapid, result, token_id: inst.token_id || inst.id });
+      }
+      rows.sort((a, b) => a.result - b.result);
+      let html = `<h2>${name}</h2><table><thead><tr><th>Zeit</th><th>Coin</th><th>Runde</th><th>Token</th></tr></thead><tbody>`;
+      for (const r of rows) {
+        html += `<tr><td>${fmtTime(r.result)}</td><td>${r.coin}</td><td>${r.mapid}</td><td>#${r.token_id}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      panel.innerHTML = html;
+      panel.classList.add('open');
+    }
+
+    // Eventhandler initialisieren
+    function bindEvents() {
+      document.getElementById('reloadBtn').onclick = () => fetchNFTs(true);
+      document.getElementById('formatToggle').onclick = () => {
+        state.timeFormat = state.timeFormat === 's' ? 'clock' : 's';
+        document.getElementById('formatLabel').textContent = state.timeFormat === 's' ? 's.mmm' : 'mm:ss.mmm';
+        render();
+      };
+      document.getElementById('exportCsv').onclick = exportCurrentCsv;
+      document.getElementById('toggleMode').onclick = () => {
+        state.modeAllRuns = !state.modeAllRuns;
+        render();
+      };
+      document.getElementById('userQuery').addEventListener('input', (e) => {
+        state.userFilter = e.target.value;
+        render();
+      });
+      document.addEventListener('click', (e) => {
+        const t = e.target;
+        if (t && t.dataset && t.dataset.user) {
+          showUser(t.dataset.user);
+        } else if (!document.getElementById('userPanel').contains(t)) {
+          document.getElementById('userPanel').classList.remove('open');
+        }
+      });
+    }
+
+    // CSV‑Export der aktuellen Ansicht
+    function exportCurrentCsv() {
+      const rows = [];
+      const header = ['rank', 'owner', 'time_ms', 'time_text', 'coin', 'mapid', 'token_id'];
+      const tbody = document.querySelectorAll('#board tbody tr');
+      for (let i = 0; i < tbody.length; i++) {
+        const tr = tbody[i];
+        const tds = tr.querySelectorAll('td');
+        const rank = i + 1;
+        const owner = tds[1].innerText.trim();
+        const timeText = tds[2].innerText.trim();
+        const timeMs = timeText.includes('s') ? parseFloat(timeText) * 1000 : null;
+        const coin = tds[3].innerText.trim();
+        const mapid = tds[4].innerText.trim();
+        const token = tds[5].innerText.trim().replace('#', '');
+        rows.push([rank, owner, timeMs || '', timeText, coin, mapid, token]);
+      }
+      let csv = header.join(',') + '\n';
+      for (const row of rows) {
+        csv += row.map((v) => String(v).replace(/,/g, '.')).join(',') + '\n';
+      }
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plyr_leaderboard_${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Initialisierung
+    async function init() {
+      // Lade State aus localStorage
+      try {
+        const saved = JSON.parse(localStorage.getItem('plyrBoardState') || '{}');
+        if (saved && typeof saved === 'object') {
+          state.activeCoin = saved.activeCoin || state.activeCoin;
+          state.activeMapId = saved.activeMapId ?? state.activeMapId;
+          state.modeAllRuns = !!saved.modeAllRuns;
+          state.userFilter = saved.userFilter || '';
+          state.timeFormat = saved.timeFormat || state.timeFormat;
+          document.getElementById('userQuery').value = state.userFilter;
+          document.getElementById('formatLabel').textContent = state.timeFormat === 's' ? 's.mmm' : 'mm:ss.mmm';
+        }
+      } catch (_) {}
+      bindEvents();
+      await fetchNFTs(true);
+    }
+    init();
+  </script>
+</body>
+</html>
